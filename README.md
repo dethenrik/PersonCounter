@@ -203,3 +203,4 @@ Opret en fil ved navn `index.html` og indsæt følgende kode:
 ## Afslutning
 
 Nu har du et system, der tæller folk, der går ind og ud af et rum, og sender disse data til ThingSpeak. HTML-siden opdaterer automatisk antallet af personer i rummet baseret på de data, der er gemt i ThingSpeak.
+
