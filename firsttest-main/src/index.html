@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Room Counter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #beb9b9;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+    }
+    .counter {
+      font-size: 30px;
+      margin: 10px 0;
+    }
+    .counter span {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>People Counter</h1>
+    <div class="counter">
+      <h2>People Entered: <span id="counterIn">0</span></h2>
+    </div>
+    <div class="counter">
+      <h2>People Exited: <span id="counterOut">0</span></h2>
+    </div>
+    <div class="counter">
+      <h2>Current People in Room: <span id="currentInRoom">0</span></h2>
+    </div>
+    <div class="counter">
+      <h2>Total Visits Today: <span id="finalCount">0</span></h2>
+    </div>
+    <button onclick="saveData()">Save Data</button>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
