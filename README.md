@@ -12,6 +12,7 @@ This guide will walk you through the entire process of setting up your ESP32 wit
 7. [Creating the Web Interface](#creating-the-web-interface)
 8. [Testing the System](#testing-the-system)
 9. [Troubleshooting](#troubleshooting)
+10. [HurtigGuide](#Hurtig-Guide)
 
 ## Prerequisites
 - **ESP32 board** (e.g., ESP32 DevKit)
@@ -241,7 +242,7 @@ This guide will walk you through the entire process of setting up your ESP32 wit
 
 
 
-# Hurtig Guide: Brug ESP32 til at tælle personer med ThingSpeak
+## Hurtig Guide: Brug ESP32 til at tælle personer med ThingSpeak
 
 ## Hvad skal du bruge?
 - **ESP32** (fx ESP32 DevKit).  
