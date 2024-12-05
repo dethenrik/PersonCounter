@@ -1,206 +1,239 @@
+# Step-by-Step Guide to Set Up ESP32 with ThingSpeak and Traffic Sensor
 
-# Komplett Guide til at Bygge en Tæller med ESP32, ThingSpeak, HTML, JavaScript og PlatformIO
+This guide will walk you through the entire process of setting up your ESP32 with a TC51 sensor, connecting to ThingSpeak, and displaying data on a webpage.
 
-Denne guide forklarer, hvordan du bygger et system, der tæller mennesker, der går ind og ud af et rum, ved hjælp af en ESP32, ThingSpeak til cloudlagring, HTML til visning af data, og JavaScript til at hente og gemme data.
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [Installing Required Software](#installing-required-software)
+3. [Setting Up ESP32 in Visual Studio Code](#setting-up-esp32-in-visual-studio-code)
+4. [Wiring the ESP32 and TC51 Sensors](#wiring-the-esp32-and-tc51-sensors)
+5. [ThingSpeak Setup](#thingspeak-setup)
+6. [Uploading Code to ESP32](#uploading-code-to-esp32)
+7. [Creating the Web Interface](#creating-the-web-interface)
+8. [Testing the System](#testing-the-system)
+9. [Troubleshooting](#troubleshooting)
 
-## Forudsætninger
+## Prerequisites
+- **ESP32 board** (e.g., ESP32 DevKit)
+- **TC51 traffic sensors** (two sensors, one for detecting "IN" and one for detecting "OUT")
+- **Wi-Fi network credentials** (SSID and password)
+- **ThingSpeak account** (to store and visualize data)
+- **Visual Studio Code** (with PlatformIO extension)
 
-Før du starter, skal du sørge for, at du har følgende installeret:
-- **PlatformIO** i Visual Studio Code (VS Code)
-- **ThingSpeak** konto (til at oprette en kanal)
-- **Wi-Fi Netværk** med koderne til din router
-- **Breadboard**, **ESP32** og nødvendige **sensorer** (2 digitale sensorer til at registrere folk, der går ind og ud)
+## Installing Required Software
 
-## Tilslutning af ESP32 til Breadboardet
+1. **Install Visual Studio Code**:
+    - Download from [here](https://code.visualstudio.com/).
+    - Install and launch Visual Studio Code.
 
-### 1. Sensorer
-- **Sensor 1** til at registrere indkommende personer:
-  - **Sensor Pin**: GPIO 25 på ESP32.
-  - Forbind den ene ledning til **GPIO 25** og den anden til **GND** (jord).
+2. **Install PlatformIO**:
+    - Open Visual Studio Code.
+    - Go to Extensions (on the left sidebar).
+    - Search for **PlatformIO** and click **Install**.
 
-- **Sensor 2** til at registrere udgående personer:
-  - **Sensor Pin**: GPIO 23 på ESP32.
-  - Forbind den ene ledning til **GPIO 23** og den anden til **GND** (jord).
+3. **Install the ESP32 Platform**:
+    - Open PlatformIO in Visual Studio Code.
+    - Go to **PlatformIO Home** and click on **Platforms**.
+    - Search for **Espressif 32** and click **Install**.
 
-### 2. Forbindelser til ESP32
-- Forbind **3V** på ESP32 til **+** på breadboardet.
-- Forbind **GND** på ESP32 til **-** på breadboardet.
+## Setting Up ESP32 in Visual Studio Code
 
-## PlatformIO Opsætning
+1. **Create a new PlatformIO project**:
+    - Open PlatformIO Home, then click **New Project**.
+    - Name your project (e.g., `TrafficCounter`), select **ESP32 DevKit** as the board, and choose **Arduino** as the framework.
+    - Click **Finish** to create the project.
 
-### 1. Installér PlatformIO
-- Hvis du ikke allerede har PlatformIO installeret, kan du gøre det via [PlatformIO's hjemmeside](https://platformio.org/).
-- Installér PlatformIO-pluginet i Visual Studio Code.
+2. **Add the ThingSpeak Library**:
+    - In the `platformio.ini` file of your project, add the following line under `[env:esp32]`:
+    ```ini
+    lib_deps = mathworks/ThingSpeak@^2.0.0
+    ```
 
-### 2. Opret et nyt projekt i PlatformIO
-- Åbn **PlatformIO** i Visual Studio Code.
-- Klik på **New Project**, vælg **ESP32** som platform, og vælg **Arduino** framework.
-- Projektet oprettes automatisk i den relevante mappe.
+## Wiring the ESP32 and TC51 Sensors
 
-### 3. Konfigurer PlatformIO.ini
-- Åbn filen `platformio.ini` i dit projekt og erstat med følgende:
+1. **ESP32 Pinout**:
+    - **Sensor 1 (IN):** Connect one wire from GPIO 25 on ESP32 to the **OUT** pin of the first TC51 sensor.
+    - **Sensor 2 (OUT):** Connect one wire from GPIO 23 on ESP32 to the **OUT** pin of the second TC51 sensor.
+    - **VCC:** Connect the **VCC** pin of both sensors to the **3V3** pin of the ESP32.
+    - **GND:** Connect the **GND** pin of both sensors to the **GND** pin of the ESP32.
 
-```ini
-[env:esp32doit-devkit-v1]
-platform = espressif32
-board = esp32doit-devkit-v1
-framework = arduino
-monitor_speed = 115200
-lib_deps = mathworks/ThingSpeak@^2.0.0
-```
+2. **Connections Summary**:
+    - **GPIO 25 → Sensor 1 (IN)**
+    - **GPIO 23 → Sensor 2 (OUT)**
+    - **3V3 → VCC for both sensors**
+    - **GND → GND for both sensors**
 
-### 4. Installér nødvendige biblioteker
-- Når du åbner projektet, sørg for, at biblioteket **ThingSpeak** er installeret, som angivet i `platformio.ini`.
+## ThingSpeak Setup
 
-## Upload af Kode til ESP32
+1. **Create a ThingSpeak account**:
+    - Go to [ThingSpeak](https://thingspeak.com/) and create an account if you don’t have one.
 
-### 1. Opret en fil ved navn `main.cpp`
-- Opret en fil kaldet `main.cpp` i din **src**-mappe.
+2. **Create a new channel**:
+    - After logging in, click **Channels** on the top menu, then click **New Channel**.
+    - Fill out the channel name and description (e.g., `Room Counter`).
+    - Add four fields: `field1`, `field2`, `field3`, and `field4`. These will store the sensor data for people entering, exiting, total visits, and current room occupancy.
 
-### 2. Kopier og indsæt følgende kode i `main.cpp`
+3. **Get the API keys**:
+    - Once the channel is created, you’ll see the channel details. Note down the **Channel ID** and **Write API Key**. You will use these in your code.
 
-```cpp
-#include <WiFi.h>
-#include <ThingSpeak.h>
-#include <Arduino.h>
+## Uploading Code to ESP32
 
-// Definer GPIO-pins til sensorer
-const int sensor1Pin = 25;
-const int sensor2Pin = 23;
+1. **Main Code (Arduino Sketch)**:
+    - Create a new file `main.cpp` inside your PlatformIO project `src` folder and paste the following code:
 
-// Wi-Fi oplysninger
-const char* ssid = "E308";
-const char* password = "98806829";
+    ```cpp
+    #include <WiFi.h>
+    #include <ThingSpeak.h>
+    #include <Arduino.h>
 
-// ThingSpeak opsætning
-unsigned long channelID = 2771658;
-const char* writeAPIKey = "762I0WX8SZUMHMI4";
-const char* readAPIKey = "W9RF5JQJ6UKWZXVN";
-WiFiClient client;
+    const int sensor1Pin = 25;  // Sensor 1 for "IN"
+    const int sensor2Pin = 23;  // Sensor 2 for "OUT"
 
-// Variabler
-unsigned long lastUpdate = 0;
-int counterIn = 0;
-int counterOut = 0;
-int finalCount = 0;
-int currentInRoom = 0;
-unsigned long sensor1Cooldown = 0;
-unsigned long sensor2Cooldown = 0;
+    const char* ssid = "E308";           // Replace with your Wi-Fi SSID
+    const char* password = "98806829";   // Replace with your Wi-Fi password
 
-void setup() {
-  pinMode(sensor1Pin, INPUT);
-  pinMode(sensor2Pin, INPUT);
+    unsigned long channelID = 2771658;          // Channel ID
+    const char* writeAPIKey = "762I0WX8SZUMHMI4";  // Write API Key
+    WiFiClient client;
 
-  Serial.begin(115200);
+    unsigned long lastUpdate = 0;
+    int counterIn = 0;
+    int counterOut = 0;
+    int finalCount = 0;
+    int currentInRoom = 0;
 
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
+    void setup() {
+      pinMode(sensor1Pin, INPUT);
+      pinMode(sensor2Pin, INPUT);
 
-  ThingSpeak.begin(client);
-}
+      Serial.begin(115200);
+      WiFi.begin(ssid, password);
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.println("Connecting to WiFi...");
+      }
+      Serial.println("Connected to WiFi");
+      ThingSpeak.begin(client);
+    }
 
-void loop() {
-  static int lastSensor1Value = 0;
-  static int lastSensor2Value = 1;
+    void loop() {
+      static int lastSensor1Value = 0;
+      static int lastSensor2Value = 1;
 
-  int sensor1Value = digitalRead(sensor1Pin);
-  int sensor2Value = digitalRead(sensor2Pin);
+      int sensor1Value = digitalRead(sensor1Pin);
+      int sensor2Value = digitalRead(sensor2Pin);
 
-  unsigned long currentMillis = millis();
-  if (sensor1Cooldown > currentMillis) sensor1Value = 0;
-  if (sensor2Cooldown > currentMillis) sensor2Value = 1;
+      unsigned long currentMillis = millis();
 
-  if (lastSensor1Value == 0 && sensor1Value == 1) {
-    counterIn++;
-    Serial.print("CounterIn: ");
-    Serial.println(counterIn);
-    sensor2Cooldown = currentMillis + 3000;
-  }
-  lastSensor1Value = sensor1Value;
+      if (lastSensor1Value == 0 && sensor1Value == 1) {
+        counterIn++;
+        Serial.print("CounterIn: ");
+        Serial.println(counterIn);
+      }
 
-  if (lastSensor2Value == 1 && sensor2Value == 0) {
-    counterOut++;
-    Serial.print("CounterOut: ");
-    Serial.println(counterOut);
-    sensor1Cooldown = currentMillis + 3000;
-  }
-  lastSensor2Value = sensor2Value;
+      if (lastSensor2Value == 1 && sensor2Value == 0) {
+        counterOut++;
+        Serial.print("CounterOut: ");
+        Serial.println(counterOut);
+      }
 
-  currentInRoom = counterIn - counterOut;
+      currentInRoom = counterIn - counterOut;
+      finalCount = counterIn;
 
-  // Upload data to ThingSpeak
-  if (millis() - lastUpdate > 15000) {
-    ThingSpeak.setField(1, counterIn);
-    ThingSpeak.setField(2, counterOut);
-    ThingSpeak.setField(3, finalCount);
-    ThingSpeak.setField(4, currentInRoom);
-    ThingSpeak.writeFields(channelID, writeAPIKey);
-    lastUpdate = millis();
-  }
-}
-```
+      if (currentMillis - lastUpdate >= 18000) {  // 18 seconds
+        lastUpdate = currentMillis;
 
-## ThingSpeak Opsætning
+        ThingSpeak.setField(1, counterIn);
+        ThingSpeak.setField(2, counterOut);
+        ThingSpeak.setField(3, finalCount);
+        ThingSpeak.setField(4, currentInRoom);
 
-### 1. Opret en Kanal
-- Gå til [ThingSpeak](https://thingspeak.com/) og log ind på din konto.
-- Opret en ny kanal, og noter **Channel ID** og **Write API Key**, da de skal bruges i koden.
-
-### 2. Opret Felter
-- I din kanal skal du oprette **fire felter**:
-  - **Field 1**: Counter In (antal personer, der går ind)
-  - **Field 2**: Counter Out (antal personer, der går ud)
-  - **Field 3**: Final Count (totalt antal personer, der er kommet ind)
-  - **Field 4**: Current In Room (antal personer i rummet)
-
-## HTML og JavaScript til Visning af Data
-
-### 1. HTML-fil
-Opret en fil ved navn `index.html` og indsæt følgende kode:
-
-```html
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>People Counter</title>
-</head>
-<body>
-    <h1>People Counter</h1>
-    <p>Number of people in room: <span id="currentInRoom">0</span></p>
-    <p>People who entered: <span id="counterIn">0</span></p>
-    <p>People who exited: <span id="counterOut">0</span></p>
-
-    <script>
-        async function fetchData() {
-            const response = await fetch('https://api.thingspeak.com/channels/YOUR_CHANNEL_ID/fields/1.json?api_key=YOUR_READ_API_KEY');
-            const data = await response.json();
-            const field1 = data.feeds[data.feeds.length - 1].field1;
-            const field2 = data.feeds[data.feeds.length - 1].field2;
-            const field4 = data.feeds[data.feeds.length - 1].field4;
-
-            document.getElementById('counterIn').innerText = field1 || 0;
-            document.getElementById('counterOut').innerText = field2 || 0;
-            document.getElementById('currentInRoom').innerText = field4 || 0;
+        int result = ThingSpeak.writeFields(channelID, writeAPIKey);
+        if (result == 200) {
+          Serial.println("Data sent to ThingSpeak successfully");
+        } else {
+          Serial.println("Failed to send data to ThingSpeak");
         }
+      }
 
-        setInterval(fetchData, 15000);
-    </script>
-</body>
-</html>
-```
+      delay(100);  // Keep this delay for polling sensors
+    }
+    ```
 
-- Udskift `YOUR_CHANNEL_ID` med dit kanal-ID og `YOUR_READ_API_KEY` med din **Read API Key** fra ThingSpeak.
+2. **Upload the code to your ESP32**:
+    - Connect your ESP32 to your computer via USB.
+    - In PlatformIO, click **Upload** to compile and upload the code to the ESP32.
 
-### 2. Åbning af HTML-fil
-- Åbn `index.html` i en webbrowser for at se tælleren opdateret med de nyeste data fra ThingSpeak.
+## Creating the Web Interface
 
-## Afslutning
+1. **Create an HTML file**:
+    - In the root folder of your project, create an `index.html` file and paste the following code:
+    ```html
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Room Counter</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #beb9b9; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; text-align: center; }
+        .counter { font-size: 30px; margin: 10px 0; }
+        .counter span { font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>People Counter</h1>
+        <div class="counter">
+          <h2>People Entered: <span id="counterIn">0</span></h2>
+        </div>
+        <div class="counter">
+          <h2>People Exited: <span id="counterOut">0</span></h2>
+        </div>
+        <div class="counter">
+          <h2>Current People in Room: <span id="currentInRoom">0</span></h2>
+        </div>
+        <div class="counter">
+          <h2>Total Visits Today: <span id="finalCount">0</span></h2>
+        </div>
+        <button onclick="saveData()">Save Data</button>
+      </div>
+      <script src="script.js"></script>
+    </body>
+    </html>
+    ```
 
-Nu har du et system, der tæller folk, der går ind og ud af et rum, og sender disse data til ThingSpeak. HTML-siden opdaterer automatisk antallet af personer i rummet baseret på de data, der er gemt i ThingSpeak.
+2. **Create the JavaScript file**:
+    - Create a `script.js` file to fetch and update data:
+    ```javascript
+    const updateData = () => {
+      fetch('https://api.thingspeak.com/channels/YOUR_CHANNEL_ID/fields.json?api_key=YOUR_API_KEY')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('counterIn').innerText = data.field1;
+        document.getElementById('counterOut').innerText = data.field2;
+        document.getElementById('currentInRoom').innerText = data.field3;
+        document.getElementById('finalCount').innerText = data.field4;
+      })
+      .catch(error => console.log('Error fetching data: ', error));
+    };
+    setInterval(updateData, 10000);  // Update every 10 seconds
+    ```
 
+    Replace `YOUR_CHANNEL_ID` and `YOUR_API_KEY` with your ThingSpeak channel ID and API key.
+
+## Testing the System
+
+1. **Connect the ESP32 to your Wi-Fi**.
+2. **Monitor the data**:
+    - After running the system, you can check the ThingSpeak channel for live data updates.
+3. **Test the sensor behavior**:
+    - The system should record the number of people entering and exiting based on the sensor signals.
+    
+## Troubleshooting
+
+- **No data on ThingSpeak**:
+    - Ensure that your ESP32 is connected to Wi-Fi.
+    - Check that the write API key and channel ID are correct.
+    - Make sure the sensor wires are properly connected to the ESP32 pins.
