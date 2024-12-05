@@ -1,162 +1,205 @@
 
-# SensorCounter
+# Komplett Guide til at Bygge en Tæller med ESP32, ThingSpeak, HTML, JavaScript og PlatformIO
 
-The **SensorCounter** project uses two sensors to track activity in a doorway, enabling traffic counting for anyone walking in or out.
+Denne guide forklarer, hvordan du bygger et system, der tæller mennesker, der går ind og ud af et rum, ved hjælp af en ESP32, ThingSpeak til cloudlagring, HTML til visning af data, og JavaScript til at hente og gemme data.
 
-## Logic Overview
+## Forudsætninger
 
-The system works by monitoring changes in sensor values to track the number of people entering and exiting a space. Here's the breakdown of the logic:
+Før du starter, skal du sørge for, at du har følgende installeret:
+- **PlatformIO** i Visual Studio Code (VS Code)
+- **ThingSpeak** konto (til at oprette en kanal)
+- **Wi-Fi Netværk** med koderne til din router
+- **Breadboard**, **ESP32** og nødvendige **sensorer** (2 digitale sensorer til at registrere folk, der går ind og ud)
 
-### Sensor 1 (Counts people walking IN):
-- The counter increases when the sensor value changes from **0 to 1** (indicating someone walked in).
+## Tilslutning af ESP32 til Breadboardet
 
-### Sensor 2 (Counts people walking OUT):
-- The counter increases when the sensor value changes from **1 to 0** (indicating someone walked out).
+### 1. Sensorer
+- **Sensor 1** til at registrere indkommende personer:
+  - **Sensor Pin**: GPIO 25 på ESP32.
+  - Forbind den ene ledning til **GPIO 25** og den anden til **GND** (jord).
 
----
+- **Sensor 2** til at registrere udgående personer:
+  - **Sensor Pin**: GPIO 23 på ESP32.
+  - Forbind den ene ledning til **GPIO 23** og den anden til **GND** (jord).
 
-## Example of Sensor Logic
+### 2. Forbindelser til ESP32
+- Forbind **3V** på ESP32 til **+** på breadboardet.
+- Forbind **GND** på ESP32 til **-** på breadboardet.
 
-### If the sensor states are as follows:
-- **IN** = 1: Increment `counterIn` by 1 (someone entered).
-- **OUT** = 0: Increment `counterOut` by 1 (someone exited).
+## PlatformIO Opsætning
 
-### Sample Data:
-- `counterIn`: 30
-- `counterOut`: 20
+### 1. Installér PlatformIO
+- Hvis du ikke allerede har PlatformIO installeret, kan du gøre det via [PlatformIO's hjemmeside](https://platformio.org/).
+- Installér PlatformIO-pluginet i Visual Studio Code.
 
----
+### 2. Opret et nyt projekt i PlatformIO
+- Åbn **PlatformIO** i Visual Studio Code.
+- Klik på **New Project**, vælg **ESP32** som platform, og vælg **Arduino** framework.
+- Projektet oprettes automatisk i den relevante mappe.
 
-## Checking and Displaying the Difference
-Every 21 seconds, the difference between the two counters is checked and displayed.
+### 3. Konfigurer PlatformIO.ini
+- Åbn filen `platformio.ini` i dit projekt og erstat med følgende:
 
-### Example Calculation:
-- `counterIn(30)` and `counterOut(20)` give a difference of **10**.
-- This means **10 people** are still in the room.
+```ini
+[env:esp32doit-devkit-v1]
+platform = espressif32
+board = esp32doit-devkit-v1
+framework = arduino
+monitor_speed = 115200
+lib_deps = mathworks/ThingSpeak@^2.0.0
+```
 
----
+### 4. Installér nødvendige biblioteker
+- Når du åbner projektet, sørg for, at biblioteket **ThingSpeak** er installeret, som angivet i `platformio.ini`.
 
-## Updating and Displaying Today's Visits
-Whenever the two counters are equal, the system updates the **"Today's Visits"** count.
+## Upload af Kode til ESP32
 
-### Condition:
-- When `counterIn` equals `counterOut`, the system will display "Today's Visits" with the current counter value.
+### 1. Opret en fil ved navn `main.cpp`
+- Opret en fil kaldet `main.cpp` i din **src**-mappe.
 
-### Example:
-- `counterIn(30)` and `counterOut(30)` means **Today's Visits** = 30.
-
----
-
-## Final Data Fields for Display:
-- `counterIn`: Total number of people who have entered.
-- `counterOut`: Total number of people who have exited.
-- `finalCount`: Displays the total number of visits for the day.
-- `currentInRoom`: Number of people currently inside (calculated as `counterIn - counterOut`).
-
----
-
-## System Update Frequency
-- The system sends data to **ThingSpeak** every 21 seconds, which includes the number of people entering, exiting, the total visits for the day, and the current number of people in the room.
-
----
-
-## Files Created
-
-The project consists of the following key files:
-
-### 1. **Arduino Code** (`sensor_counter.ino`)
-This is the Arduino script that runs on the ESP32. It monitors the two sensors and sends data to ThingSpeak.
-
-**Key Components:**
-- Initializes the sensors and Wi-Fi connection.
-- Monitors the sensors and increments the counters.
-- Sends data to ThingSpeak every 21 seconds.
+### 2. Kopier og indsæt følgende kode i `main.cpp`
 
 ```cpp
 #include <WiFi.h>
 #include <ThingSpeak.h>
 #include <Arduino.h>
 
-// Sensor and Wi-Fi setup...
+// Definer GPIO-pins til sensorer
+const int sensor1Pin = 25;
+const int sensor2Pin = 23;
+
+// Wi-Fi oplysninger
+const char* ssid = "E308";
+const char* password = "98806829";
+
+// ThingSpeak opsætning
+unsigned long channelID = 2771658;
+const char* writeAPIKey = "762I0WX8SZUMHMI4";
+const char* readAPIKey = "W9RF5JQJ6UKWZXVN";
+WiFiClient client;
+
+// Variabler
+unsigned long lastUpdate = 0;
+int counterIn = 0;
+int counterOut = 0;
+int finalCount = 0;
+int currentInRoom = 0;
+unsigned long sensor1Cooldown = 0;
+unsigned long sensor2Cooldown = 0;
+
 void setup() {
-  // Sensor and Wi-Fi initialization...
+  pinMode(sensor1Pin, INPUT);
+  pinMode(sensor2Pin, INPUT);
+
+  Serial.begin(115200);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  ThingSpeak.begin(client);
 }
 
 void loop() {
-  // Logic for reading sensors and sending data to ThingSpeak...
+  static int lastSensor1Value = 0;
+  static int lastSensor2Value = 1;
+
+  int sensor1Value = digitalRead(sensor1Pin);
+  int sensor2Value = digitalRead(sensor2Pin);
+
+  unsigned long currentMillis = millis();
+  if (sensor1Cooldown > currentMillis) sensor1Value = 0;
+  if (sensor2Cooldown > currentMillis) sensor2Value = 1;
+
+  if (lastSensor1Value == 0 && sensor1Value == 1) {
+    counterIn++;
+    Serial.print("CounterIn: ");
+    Serial.println(counterIn);
+    sensor2Cooldown = currentMillis + 3000;
+  }
+  lastSensor1Value = sensor1Value;
+
+  if (lastSensor2Value == 1 && sensor2Value == 0) {
+    counterOut++;
+    Serial.print("CounterOut: ");
+    Serial.println(counterOut);
+    sensor1Cooldown = currentMillis + 3000;
+  }
+  lastSensor2Value = sensor2Value;
+
+  currentInRoom = counterIn - counterOut;
+
+  // Upload data to ThingSpeak
+  if (millis() - lastUpdate > 15000) {
+    ThingSpeak.setField(1, counterIn);
+    ThingSpeak.setField(2, counterOut);
+    ThingSpeak.setField(3, finalCount);
+    ThingSpeak.setField(4, currentInRoom);
+    ThingSpeak.writeFields(channelID, writeAPIKey);
+    lastUpdate = millis();
+  }
 }
 ```
 
-### 2. **HTML File** (`index.html`)
-This is the webpage that will display the data fetched from ThingSpeak.
+## ThingSpeak Opsætning
 
-**Key Components:**
-- Displays real-time data for `counterIn`, `counterOut`, `currentInRoom`, and `finalCount`.
-- Fetches data from ThingSpeak using JavaScript.
+### 1. Opret en Kanal
+- Gå til [ThingSpeak](https://thingspeak.com/) og log ind på din konto.
+- Opret en ny kanal, og noter **Channel ID** og **Write API Key**, da de skal bruges i koden.
+
+### 2. Opret Felter
+- I din kanal skal du oprette **fire felter**:
+  - **Field 1**: Counter In (antal personer, der går ind)
+  - **Field 2**: Counter Out (antal personer, der går ud)
+  - **Field 3**: Final Count (totalt antal personer, der er kommet ind)
+  - **Field 4**: Current In Room (antal personer i rummet)
+
+## HTML og JavaScript til Visning af Data
+
+### 1. HTML-fil
+Opret en fil ved navn `index.html` og indsæt følgende kode:
 
 ```html
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room Counter</title>
-  <!-- Add CSS for styling -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>People Counter</title>
 </head>
 <body>
-  <div class="container">
     <h1>People Counter</h1>
-    <!-- Display counters here -->
-  </div>
-  <script src="script.js"></script>
+    <p>Number of people in room: <span id="currentInRoom">0</span></p>
+    <p>People who entered: <span id="counterIn">0</span></p>
+    <p>People who exited: <span id="counterOut">0</span></p>
+
+    <script>
+        async function fetchData() {
+            const response = await fetch('https://api.thingspeak.com/channels/YOUR_CHANNEL_ID/fields/1.json?api_key=YOUR_READ_API_KEY');
+            const data = await response.json();
+            const field1 = data.feeds[data.feeds.length - 1].field1;
+            const field2 = data.feeds[data.feeds.length - 1].field2;
+            const field4 = data.feeds[data.feeds.length - 1].field4;
+
+            document.getElementById('counterIn').innerText = field1 || 0;
+            document.getElementById('counterOut').innerText = field2 || 0;
+            document.getElementById('currentInRoom').innerText = field4 || 0;
+        }
+
+        setInterval(fetchData, 15000);
+    </script>
 </body>
 </html>
 ```
 
-### 3. **JavaScript File** (`script.js`)
-This JavaScript file fetches data from ThingSpeak and updates the webpage with the real-time values.
+- Udskift `YOUR_CHANNEL_ID` med dit kanal-ID og `YOUR_READ_API_KEY` med din **Read API Key** fra ThingSpeak.
 
-**Key Components:**
-- Fetches data from ThingSpeak's API.
-- Updates the webpage dynamically every 21 seconds.
+### 2. Åbning af HTML-fil
+- Åbn `index.html` i en webbrowser for at se tælleren opdateret med de nyeste data fra ThingSpeak.
 
-```javascript
-const channelID = 2771658;
-const readAPIKey = 'YOUR_READ_API_KEY';
+## Afslutning
 
-async function fetchData() {
-  // Fetch data from ThingSpeak and update the HTML elements
-}
-setInterval(fetchData, 21000);
-```
-
-### 4. **CSS File** (Optional, within `index.html` or as a separate file)
-The CSS file styles the webpage to make the output visually appealing.
-
----
-
-## Handling the Output
-
-### 1. **Displaying the Data on the Webpage**
-The data from ThingSpeak is displayed on the webpage using the `index.html` and `script.js` files. The JavaScript file fetches data from ThingSpeak using its REST API and updates the page with the latest values for `counterIn`, `counterOut`, `finalCount`, and `currentInRoom`.
-
-### 2. **Using Visual Studio Code's Go Live**
-- Open the project folder in Visual Studio Code.
-- Right-click on the `index.html` file and select **Open with Live Server**.
-- This launches a local server, and the webpage will automatically open in your default browser.
-- The webpage will fetch and display the real-time data from ThingSpeak every 21 seconds.
-
-### 3. **Data Updates from ThingSpeak**
-Every 21 seconds, the system sends updated sensor data to ThingSpeak. The webpage fetches this data and dynamically updates the displayed values, showing the number of people who have entered, exited, and the total count of people currently in the room or who have visited during the day.
-
-### 4. **Example Webpage Output**
-After 21 seconds of operation, the webpage will display:
-
-| Field          | Value     |
-|----------------|-----------|
-| `counterIn`    | 30        |
-| `counterOut`   | 20        |
-| `finalCount`   | 30        |
-| `currentInRoom`| 10        |
-
----
+Nu har du et system, der tæller folk, der går ind og ud af et rum, og sender disse data til ThingSpeak. HTML-siden opdaterer automatisk antallet af personer i rummet baseret på de data, der er gemt i ThingSpeak.
