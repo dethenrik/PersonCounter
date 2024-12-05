@@ -1,0 +1,82 @@
+# Mini-Brugervejledning: Opsætning af ESP32 med ThingSpeak og Trafiksensor
+
+## 1. Hvad du skal bruge  
+- **ESP32** (f.eks. ESP32 DevKit).  
+- **TC51-sensor** (f.eks. til tælling af "IN" og "OUT").  
+- **Wi-Fi-oplysninger** (SSID og adgangskode).  
+- **ThingSpeak-konto**.  
+- **Visual Studio Code** med PlatformIO.  
+
+---
+
+## 2. Installér software  
+1. **Visual Studio Code**:  
+   - Download fra [code.visualstudio.com](https://code.visualstudio.com/).  
+
+2. **PlatformIO**:  
+   - Åbn Visual Studio Code.  
+   - Gå til *Extensions* → søg efter **PlatformIO** → Klik **Install**.  
+
+---
+
+## 3. Tilslutning af sensorer  
+1. Tilslut TC51-sensorerne til ESP32 som vist:  
+   - **Sensor 1 (IN):** GPIO 25 → OUT på sensor.  
+   - **Sensor 2 (OUT):** GPIO 23 → OUT på sensor.  
+   - **3V3:** VCC til begge sensorer.  
+   - **GND:** GND til begge sensorer.  
+
+---
+
+## 4. Opsæt ThingSpeak  
+1. Opret en konto på [thingspeak.com](https://thingspeak.com/).  
+2. Opret en ny kanal med 4 felter:  
+   - Felt 1: Antal personer gået ind.  
+   - Felt 2: Antal personer gået ud.  
+   - Felt 3: Samlet besøg.  
+   - Felt 4: Aktuelle personer i rummet.  
+3. Notér din **Channel ID** og **Write API Key**.
+
+---
+
+## 5. Upload kode til ESP32  
+1. **Opsætning i PlatformIO**:  
+   - Lav et nyt projekt → Vælg **ESP32 DevKit** og **Arduino Framework**.  
+   - Tilføj i `platformio.ini`:  
+     ```ini
+     lib_deps = mathworks/ThingSpeak@^2.0.0
+     ```
+
+2. **Hovedkode**:  
+   - Indsæt følgende kode i filen `main.cpp` under projektets `src`-mappe:  
+     ```cpp
+     #include <WiFi.h>
+     #include <ThingSpeak.h>
+     const int sensor1Pin = 25; 
+     const int sensor2Pin = 23; 
+     const char* ssid = "DIN_SSID"; 
+     const char* password = "DIN_ADGANGSKODE"; 
+     unsigned long channelID = 123456; 
+     const char* writeAPIKey = "DIN_API_KEY"; 
+     WiFiClient client; 
+     // Setup og loop-funktioner her...
+     ```
+   - Erstat **DIN_SSID**, **DIN_ADGANGSKODE**, og **DIN_API_KEY** med dine egne oplysninger.  
+
+3. **Upload**:  
+   - Tilslut ESP32 til din PC og klik på **Upload** i PlatformIO.
+
+---
+
+## 6. Test systemet  
+1. Sørg for, at ESP32 er tilsluttet Wi-Fi.  
+2. Brug *Monitor Serial* i PlatformIO for at se live-data.  
+3. Tjek din ThingSpeak-kanal for opdateringer.  
+
+---
+
+## 7. Fejlfinding  
+- **Ingen data på ThingSpeak**:  
+  - Kontrollér Wi-Fi-forbindelse og API-oplysninger.  
+- **Sensor virker ikke**:  
+  - Kontrollér ledningsforbindelser mellem ESP32 og sensorer.  
